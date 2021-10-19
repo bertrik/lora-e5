@@ -1,26 +1,22 @@
 #include <Arduino.h>
 
-#include <SoftwareSerial.h>
-
-/**
- * Ideally, the serial port used by Arduino is the one on PB6/PB7 under hardware control.
- * For this, we need to configure the alternate function for PB6/PB7 to alternate function 7,
- * using the GPIOB.AFRL register. Possibly, we also need to tell Arduino to use the right UART.
- *
- * For now, using software serial works too.
- */
-static SoftwareSerial serial(PB7, PB6);
+#include <stdbool.h>
 
 void setup(void)
 {
-    pinMode(PB5, OUTPUT);
-    digitalWrite(PB5, 0);
+    pinMode(LED_BUILTIN, OUTPUT);
+    digitalWrite(LED_BUILTIN, 0);
 
-    serial.begin(9600);
-    serial.println("Hello world!");
+    pinMode(USER_BTN, INPUT_PULLUP);
+
+    Serial.begin(9600);
 }
 
 static unsigned long int last_second = 0;
+static unsigned long int last_button_change = 0;
+static bool button_status = false;
+static bool button_event = true;
+static bool last_button_status = false;
 
 void loop(void)
 {
@@ -28,12 +24,26 @@ void loop(void)
     unsigned long int ms = millis();
     unsigned long int second = ms / 1000;
     if (second != last_second) {
-        serial.print("Second ");
-        serial.println(second);
+        Serial.print("Second ");
+        Serial.println(second);
         last_second = second;
     }
 
-    // flash LED to show we're still alive
-    digitalWrite(PB5, (ms / 500) % 2);
-}
+    // debounce button
+    bool button_event = false;
+    if ((ms - last_button_change ) > 100) {
+        button_status = (digitalRead(USER_BTN) == 0);
+        if (button_status != last_button_status) {
+            button_event = true;
+            last_button_status = button_status;
+            last_button_change = ms;
+        }
+    }
+    if (button_event) {
+        Serial.print("Button: ");
+        Serial.println(button_status);
+    }
 
+    // flash LED to show we're still alive
+    digitalWrite(LED_BUILTIN, (ms / 500) % 2);
+}
